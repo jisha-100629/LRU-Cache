@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LRU Cache Visualizer</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 850px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        .setup-bar { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 8px 15px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        .btn-set { background: #7f8c8d; }
+        .btn-put { background: #2ecc71; }
+        .btn-get { background: #3498db; }
+        
+        #status-msg { margin-bottom: 15px; font-weight: bold; color: #e67e22; height: 20px; }
+
+        .cache-container { display: flex; align-items: center; gap: 10px; margin: 20px 0; min-height: 100px; border: 2px dashed #ccc; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        .node { min-width: 80px; height: 80px; background: #34495e; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.3s; position: relative; }
+        .node.mru { background: #2ecc71; transform: scale(1.05); border: 2px solid #27ae60; }
+        .node.lru { background: #e74c3c; }
+        
+        .node-key { font-size: 1.1em; font-weight: bold; }
+        .node-val { font-size: 0.8em; opacity: 0.9; }
+        .label { font-size: 0.6em; position: absolute; top: 5px; font-weight: bold; }
+
+        .arrow { font-size: 20px; color: #bdc3c7; }
+
+        .description { background: #ecf0f1; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 0.9em; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>LRU Cache Visualizer</h2>
+        
+        <div class="setup-bar">
+            <span>Capacity: </span>
+            <input type="number" id="capacityInput" value="4" min="1" style="width: 50px;">
+            <button class="btn-set" onclick="setCapacity()">Set Capacity</button>
+        </div>
+
+        <div id="status-msg">Welcome! Use Put to add data or Get to search.</div>
+
+        <div class="controls">
+            <input type="text" id="keyInput" placeholder="Key (e.g. A)">
+            <input type="text" id="valInput" placeholder="Value (e.g. 100)">
+            <button class="btn-put" onclick="handlePut()">Put</button>
+            <button class="btn-get" onclick="handleGet()">Get</button>
+        </div>
+
+        <div class="cache-container" id="cacheDisplay"></div>
+        
+        <div class="description">
+            <h3>How it Works:</h3>
+            <p><strong>Topic:</strong> LRU (Least Recently Used) cache stores data as Key-Value pairs. It keeps the most recently accessed items at the front (MRU). When the capacity is reached, it deletes the item at the very end (LRU) to make room for new data.</p>
+            <p>
+                1. <b>Put:</b> Enter a key and value. If the key exists, it updates the value and moves to the front. If new, it adds it to the front.<br>
+                2. <b>Get:</b> Enter a key to find its value. If found, it moves to the front because it was "recently used".<br>
+                3. <b>Capacity:</b> Change the limit at any time. If you decrease it, the oldest items are automatically evicted.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let capacity = 4;
+        let cache = []; 
+
+        function setCapacity() {
+            const newCap = parseInt(document.getElementById('capacityInput').value);
+            if (isNaN(newCap) || newCap < 1) return;
+            capacity = newCap;
+            while (cache.length > capacity) { cache.pop(); }
+            document.getElementById('status-msg').innerText = "Capacity updated to " + capacity;
+            render();
+        }
+
+        function handlePut() {
+            const key = document.getElementById('keyInput').value.trim();
+            const val = document.getElementById('valInput').value.trim();
+            if (!key || !val) return;
+
+            const index = cache.findIndex(item => item.key === key);
+            if (index > -1) {
+                cache.splice(index, 1);
+                document.getElementById('status-msg').innerText = "Updated Key: " + key;
+            } else {
+                if (cache.length >= capacity) {
+                    const evicted = cache.pop();
+                    document.getElementById('status-msg').innerText = "Evicted: " + evicted.key + " | Added: " + key;
+                } else {
+                    document.getElementById('status-msg').innerText = "Added: " + key;
+                }
+            }
+            cache.unshift({key, val});
+            render();
+            document.getElementById('keyInput').value = '';
+            document.getElementById('valInput').value = '';
+        }
+
+        function handleGet() {
+            const key = document.getElementById('keyInput').value.trim();
+            if (!key) return;
+
+            const index = cache.findIndex(item => item.key === key);
+            if (index > -1) {
+                const item = cache[index];
+                cache.splice(index, 1);
+                cache.unshift(item);
+                document.getElementById('status-msg').innerText = "Cache Hit! Value: " + item.val;
+                render();
+            } else {
+                document.getElementById('status-msg').innerText = "Cache Miss! Key not found.";
+            }
+            document.getElementById('keyInput').value = '';
+        }
+
+        function render() {
+            const display = document.getElementById('cacheDisplay');
+            display.innerHTML = '';
+            cache.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'node';
+                if (i === 0) div.classList.add('mru');
+                if (i === cache.length - 1 && cache.length === capacity) div.classList.add('lru');
+                
+                div.innerHTML = `
+                    <div class="label">${i === 0 ? 'MRU' : (i === cache.length-1 ? 'LRU' : '')}</div>
+                    <div class="node-key">${item.key}</div>
+                    <div class="node-val">${item.val}</div>
+                `;
+                display.appendChild(div);
+
+                if (i < cache.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'arrow';
+                    arrow.innerText = '↔';
+                    display.appendChild(arrow);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
